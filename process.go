@@ -374,7 +374,7 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 	widthToScale := minNonZeroInt(cropWidth, srcWidth)
 	heightToScale := minNonZeroInt(cropHeight, srcHeight)
 
-	scale := calcScale(srcWidth, srcHeight, widthToScale, heightToScale, po, imgtype)
+	scale := calcScale2(srcWidth, srcHeight, widthToScale, heightToScale, po, imgtype)
 
 	cropWidth = scaleInt(cropWidth, scale)
 	cropHeight = scaleInt(cropHeight, scale)
@@ -402,7 +402,7 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 		widthToScale = scaleInt(widthToScale, float64(newWidth)/float64(srcWidth))
 		heightToScale = scaleInt(heightToScale, float64(newHeight)/float64(srcHeight))
 
-		scale = calcScale(srcWidth, srcHeight, widthToScale, heightToScale, po, imgtype)
+		scale = calcScale2(srcWidth, srcHeight, widthToScale, heightToScale, po, imgtype)
 	}
 
 	if err = img.Rad2Float(); err != nil {
