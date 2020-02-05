@@ -119,6 +119,9 @@ ENV MALLOC_ARENA_MAX=4
 ENV LD_LIBRARY_PATH /lib64:/usr/lib64:/usr/local/lib
 ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 
+# ADD img_watermark3.png /img_watermark3.png
+ADD ssm_logo.png /img_watermark3.png
+
 CMD ["imgproxy"]
 
 EXPOSE 8080
