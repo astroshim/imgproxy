@@ -88,14 +88,27 @@ func calcScale2(oriWidth, oriHeight, width, height int, po *processingOptions, i
 		rt := po.ResizingType
 
 		if rt == resizeAuto {
-			srcD := oriWidth - oriHeight
+			// srcD := oriWidth - oriHeight
+			// logWarning("request size: %d:%d, image size: %d:%d", po.Width, po.Height, oriWidth, oriHeight)
 
+			// 도매픽사이즈 696x928, 카테고리 추천광고 사이즈 375x500 의 경우 무조건 fill
+			// if (width == 696 && height == 928 || width == 375 && height == 500) {
+			if (po.Width == 696 && po.Height == 928 || po.Width == 375 && po.Height == 500) {
+				rt = resizeFill
+			} else if (float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // 원본 이미지가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+				rt = resizeFit
+			} else {
+				rt = resizeFill
+			}
+
+			/*
 			// 가로가 큰 사진은 fit, 세로가 큰 사진은 fill 하도록 변경. (원래 소스와 반대)
 			if (srcD >= 0) {
 				rt = resizeFit
 			} else {
 				rt = resizeFill
 			}
+			*/
 		}
 
 		switch {
