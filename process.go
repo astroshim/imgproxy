@@ -38,7 +38,8 @@ func extractMeta(img *vipsImage) (int, int, int, bool) {
 	angle := vipsAngleD0
 	flip := false
 
-	/*
+	/**
+	 * for ssm
 	orientation := img.Orientation()
 
 	if orientation >= 5 && orientation <= 8 {
@@ -61,6 +62,9 @@ func extractMeta(img *vipsImage) (int, int, int, bool) {
 	return width, height, angle, flip
 }
 
+/**
+ * for ssm : 함수 추가함.
+ */
 func calcScale2(oriWidth, oriHeight, width, height int, po *processingOptions, imgtype imageType) float64 {
 	var shrink float64
 
@@ -87,7 +91,7 @@ func calcScale2(oriWidth, oriHeight, width, height int, po *processingOptions, i
 			srcD := oriWidth - oriHeight
 
 			// 가로가 큰 사진은 fit, 세로가 큰 사진은 fill 하도록 변경. (원래 소스와 반대)
-			if (srcD > 0) {
+			if (srcD >= 0) {
 				rt = resizeFit
 			} else {
 				rt = resizeFill
