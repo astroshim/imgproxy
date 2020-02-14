@@ -95,7 +95,8 @@ func calcScale2(oriWidth, oriHeight, width, height int, po *processingOptions, i
 			// if (width == 696 && height == 928 || width == 375 && height == 500) {
 			if (po.Width == 696 && po.Height == 928 || po.Width == 375 && po.Height == 500) {
 				rt = resizeFill
-			} else if (float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // 원본 이미지가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+			// } else if (float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // 원본 이미지가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+			} else if (float64(float64(po.Width)/float64(po.Height)) >= 0.75) { // request가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
 				rt = resizeFit
 			} else {
 				rt = resizeFill
