@@ -30,6 +30,9 @@ ENV VIPS_WARNING=0
 ENV MALLOC_ARENA_MAX=2
 ENV LD_LIBRARY_PATH /usr/local/lib
 
+# ADD img_watermark3.png /img_watermark3.png
+ADD ssm_watermark.png /ssm_watermark.png
+
 CMD ["imgproxy"]
 
 EXPOSE 8080

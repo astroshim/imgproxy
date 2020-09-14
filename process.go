@@ -41,6 +41,8 @@ func extractMeta(img *vipsImage) (int, int, int, bool) {
 	angle := vipsAngleD0
 	flip := false
 
+	/**
+	 * for ssm
 	orientation := img.Orientation()
 
 	if orientation >= 5 && orientation <= 8 {
@@ -58,8 +60,89 @@ func extractMeta(img *vipsImage) (int, int, int, bool) {
 	if orientation == 2 || orientation == 4 || orientation == 5 || orientation == 7 {
 		flip = true
 	}
+	*/
 
 	return width, height, angle, flip
+}
+
+/**
+ * for ssm : 함수 추가함.
+ */
+func calcScale2(oriWidth, oriHeight, width, height int, po *processingOptions, imgtype imageType) float64 {
+	var shrink float64
+
+	srcW, srcH := float64(width), float64(height)
+	dstW, dstH := float64(po.Width), float64(po.Height)
+
+	if po.Width == 0 {
+		dstW = srcW
+	}
+
+	if po.Height == 0 {
+		dstH = srcH
+	}
+
+	if dstW == srcW && dstH == srcH {
+		shrink = 1
+	} else {
+		wshrink := srcW / dstW
+		hshrink := srcH / dstH
+
+		rt := po.ResizingType
+
+		if rt == resizeAuto {
+			// srcD := oriWidth - oriHeight
+			// logWarning("request size: %d:%d, image size: %d:%d", po.Width, po.Height, oriWidth, oriHeight)
+
+			// 도매픽사이즈 696x928, 카테고리 추천광고 사이즈 375x500 의 경우 무조건 fill
+			// if (width == 696 && height == 928 || width == 375 && height == 500) {
+			if (po.Width == 696 && po.Height == 928 || po.Width == 375 && po.Height == 500) {
+				rt = resizeFill
+			} else if (float64(float64(po.Width)/float64(po.Height)) == 0.75 && float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // request가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+				rt = resizeFit
+			// } else if (float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // 원본 이미지가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+			// 	rt = resizeFit
+			} else {
+				rt = resizeFill
+			}
+
+			/*
+			// 가로가 큰 사진은 fit, 세로가 큰 사진은 fill 하도록 변경. (원래 소스와 반대)
+			if (srcD >= 0) {
+				rt = resizeFit
+			} else {
+				rt = resizeFill
+			}
+			*/
+		}
+
+		switch {
+		case po.Width == 0:
+			shrink = hshrink
+		case po.Height == 0:
+			shrink = wshrink
+		case rt == resizeFit:
+			shrink = math.Max(wshrink, hshrink)
+		default:
+			shrink = math.Min(wshrink, hshrink)
+		}
+	}
+
+	if !po.Enlarge && shrink < 1 && imgtype != imageTypeSVG {
+		shrink = 1
+	}
+
+	shrink /= po.Dpr
+
+	if shrink > srcW {
+		shrink = srcW
+	}
+
+	if shrink > srcH {
+		shrink = srcH
+	}
+
+	return 1.0 / shrink
 }
 
 func calcScale(width, height int, po *processingOptions, imgtype imageType) float64 {
@@ -332,7 +415,7 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 	widthToScale := minNonZeroInt(cropWidth, srcWidth)
 	heightToScale := minNonZeroInt(cropHeight, srcHeight)
 
-	scale := calcScale(widthToScale, heightToScale, po, imgtype)
+	scale := calcScale2(srcWidth, srcHeight, widthToScale, heightToScale, po, imgtype)
 
 	cropWidth = scaleInt(cropWidth, scale)
 	cropHeight = scaleInt(cropHeight, scale)
@@ -357,7 +440,7 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 		widthToScale = scaleInt(widthToScale, float64(newWidth)/float64(srcWidth))
 		heightToScale = scaleInt(heightToScale, float64(newHeight)/float64(srcHeight))
 
-		scale = calcScale(widthToScale, heightToScale, po, imgtype)
+		scale = calcScale2(srcWidth, srcHeight, widthToScale, heightToScale, po, imgtype)
 	}
 
 	if err = img.Rad2Float(); err != nil {
