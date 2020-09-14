@@ -64,7 +64,7 @@ Defines how imgproxy will resize the source image. Supported resizing types are:
 
 Default: `fit`
 
-#### Resizing algorithm <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Resizing algorithm<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 resizing_algorithm:%algorithm
@@ -170,6 +170,44 @@ Defines an area of the image to be processed (crop before resize).
 * `width` and `height` define the size of the area. When `width` or `height` is set to `0`, imgproxy will use the full width/height of the source image.
 * `gravity` _(optional)_ accepts the same values as [gravity](#gravity) option. When `gravity` is not set, imgproxy will use the value of the [gravity](#gravity) option.
 
+#### Padding
+
+```
+padding:%top:%right:%bottom:%left
+pd:%top:%right:%bottom:%left
+```
+
+Defines padding size in css manner. All arguments are optional but at least one dimension must be set. Padded space is filled according to [background](#background) option.
+
+* `top` - top padding (and all other sides if they won't be set explicitly);
+* `right` - right padding (and left if it won't be set explicitly);
+* `bottom` - bottom padding;
+* `left` - left padding.
+
+**📝Note:** Padding is applied after all image transformations (except watermark) and enlarges generated image which means that if your resize dimensions were 100x200px and you applied `padding:10` option then you will get 120x220px image.
+
+**📝Note:** Padding follows [dpr](#dpr) option so it will be scaled too if you set it.
+
+#### Trim
+
+```
+trim:%threshold:%color:%equal_hor:%equal_ver
+t:%threshold:%color:%equal_hor:%equal_ver
+```
+
+Removes surrounding background.
+
+* `threshold` - color similarity tolerance.
+* `color` - _(optional)_ hex-coded value of the color that needs to be cut off.
+* `equal_hor` - _(optional)_ set to `1`, `t` or `true`, imgproxy will cut only equal parts from left and right sides. That means that if 10px of background can be cut off from left and 5px from right then 5px will be cut off from both sides. For example, it can be useful if objects on your images are centered but have non-symmetrical shadow.
+* `equal_ver` - _(optional)_ acts like `equal_hor` but for top/bottom sides.
+
+**⚠️Warning:** Trimming requires an image to be fully loaded into memory. This disables scale-on-load and significantly increases memory usage and processing time. Use it carefully with large images.
+
+**📝Note:** If you know background color of your images then setting it explicitly via `color` will also save some resources because libvips won't detect it automatically.
+
+**📝Note:** Trimming of animated images is not supported.
+
 #### Quality
 
 ```
@@ -190,8 +228,9 @@ mb:%bytes
 
 When set, imgproxy automatically degrades the quality of the image until the image is under the specified amount of bytes.
 
-**Note:** Applicable only to `jpg`, `webp`, `heic`, and `tiff`.
-**Warning**: When `max_bytes` is set, imgproxy saves image multiple times to achieve specified image size.
+**📝Note:** Applicable only to `jpg`, `webp`, `heic`, and `tiff`.
+
+**⚠️Warning:** When `max_bytes` is set, imgproxy saves image multiple times to achieve specified image size.
 
 Default: 0
 
@@ -211,7 +250,18 @@ With no arguments provided, disables any background manipulations.
 
 Default: disabled
 
-#### Adjust <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Background alpha<img class='pro-badge' src='assets/pro.svg' alt='pro' />
+
+```
+background_alpha:%alpha
+bga:%alpha
+```
+
+Adds alpha channel to `background`. `alpha` is a positive floating point number between `0` and `1`.
+
+Default: 1
+
+#### Adjust<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 adjust:%brightness:%contrast:%saturation
@@ -220,7 +270,7 @@ a:%brightness:%contrast:%saturation
 
 Meta-option that defines the [brightness](#brightness), [contrast](#contrast), and [saturation](#saturation). All arguments are optional and can be omitted to use their default values.
 
-#### Brightness <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Brightness<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 brightness:%brightness
@@ -231,7 +281,7 @@ When set, imgproxy will adjust brightness of the resulting image. `brightness` i
 
 Default: 0
 
-#### Contrast <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Contrast<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 contrast:%contrast
@@ -242,7 +292,7 @@ When set, imgproxy will adjust contrast of the resulting image. `contrast` is a 
 
 Default: 1
 
-#### Saturation <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Saturation<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 saturation:%saturation
@@ -277,7 +327,7 @@ As an approximate guideline, use 0.5 sigma for 4 pixels/mm (display resolution),
 
 Default: disabled
 
-#### Pixelate <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Pixelate<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 pixelate:%size
@@ -287,6 +337,15 @@ pix:%size
 When set, imgproxy will apply the pixelate filter to the resulting image. `size` is the size of a pixel.
 
 Default: disabled
+
+#### Unsharpening<img class='pro-badge' src='assets/pro.svg' alt='pro' />
+
+```
+unsharpening:%mode:%weight:%dividor
+ush:%mode:%weight:%dividor
+```
+
+Allows redefining unsharpening options. All arguments have the same meaning as [Unsharpening](configuration.md#unsharpening) configs. All arguments are optional and can be omitted.
 
 #### Watermark
 
@@ -314,7 +373,7 @@ Puts watermark on the processed image.
 
 Default: disabled
 
-#### Watermark URL <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Watermark URL<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 watermark_url:%url
@@ -325,7 +384,7 @@ When set, imgproxy will use the image from the specified URL as a watermark. `ur
 
 Default: blank
 
-#### Style <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### Style<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 style:%style
@@ -336,7 +395,7 @@ When set, imgproxy will prepend `<style>` node with provided content to the `<sv
 
 Default: blank
 
-#### JPEG options <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### JPEG options<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 jpeg_options:%progressive:%no_subsample:%trellis_quant:%overshoot_deringing:%optimize_scans:%quant_table
@@ -345,7 +404,7 @@ jpgo:%progressive:%no_subsample:%trellis_quant:%overshoot_deringing:%optimize_sc
 
 Allows redefining JPEG saving options. All arguments have the same meaning as [Advanced JPEG compression](configuration.md#advanced-jpeg-compression) configs. All arguments are optional and can be omitted.
 
-#### PNG options <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+#### PNG options<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 ```
 png_options:%png_interlaced:%png_quantize:%png_quantization_colors
@@ -353,6 +412,35 @@ pngo:%png_interlaced:%png_quantize:%png_quantization_colors
 ```
 
 Allows redefining PNG saving options. All arguments have the same meaning as [Advanced PNG compression](configuration.md#advanced-png-compression) configs. All arguments are optional and can be omitted.
+
+#### GIF options<img class='pro-badge' src='assets/pro.svg' alt='pro' />
+
+```
+gif_options:%gif_optimize_frames:%gif_optimize_transparency
+gifo:%gif_optimize_frames:%gif_optimize_transparency
+```
+
+Allows redefining GIF saving options. All arguments have the same meaning as [Advanced GIF compression](configuration.md#advanced-gif-compression) configs. All arguments are optional and can be omitted.
+
+#### Page<img class='pro-badge' src='assets/pro.svg' alt='pro' />
+
+```
+page:%page
+pg:%page
+```
+
+When source image supports pagination (PDF, TIFF) or animation (GIF, WebP), this option allows specifying the page to use. Pages numeration starts from zero.
+
+Default: 0
+
+#### Video thumbnail second<img class='pro-badge' src='assets/pro.svg' alt='pro' />
+
+```
+video_thumbnail_second:%second
+vts:%second
+```
+
+Allows redefining `IMGPROXY_VIDEO_THUMBNAIL_SECOND` config.
 
 #### Preset
 
@@ -379,6 +467,17 @@ Cache buster doesn't affect image processing but it's changing allows to bypass 
 It's highly recommended to prefer `cachebuster` option over URL query string because the option can be properly signed.
 
 Default: empty
+
+#### Strip Metadata
+
+```
+strip_metadata:%strip_metadata
+sm:%strip_metadata
+```
+
+When set to `1`, `t` or `true`, imgproxy will strip the metadata (EXIF, IPTC, etc.) on JPEG and WebP output images. Normally this is controlled by the [IMGPROXY_STRIP_METADATA](configuration.md#miscellaneous) configuration but this procesing option allows the configuration to be set for each request.
+
+Default: `false`
 
 #### Filename
 
@@ -415,7 +514,7 @@ The source URL can be provided as is, prendended by `/plain/` part:
 /plain/http://example.com/images/curiosity.jpg
 ```
 
-**Note:** If the source URL contains query string or `@`, you need to escape it.
+**📝Note:** If the source URL contains query string or `@`, you need to escape it.
 
 When using plain source URL, you can specify the [extension](#extension) after `@`:
 
@@ -439,11 +538,7 @@ When using encoded source URL, you can specify the [extension](#extension) after
 
 ### Extension
 
-Extension specifies the format of the resulting image. At the moment, imgproxy supports only `jpg`, `png`, `webp`, `gif`, `ico`, `heic`, and `tiff`, them being the most popular and useful image formats.
-
-<img class="pro-badge" src="assets/pro.svg" alt="pro" /> Also you can yse `mp4` extension to convert animated images to MP4.
-
-**Note:** Read more about image formats support [here](image_formats_support.md).
+Extension specifies the format of the resulting image. Read about image formats support [here](image_formats_support.md).
 
 The extension part can be omitted. In this case, imgproxy will use source image format as resulting one. If source image format is not supported as resulting, imgproxy will use `jpg`. You also can [enable WebP support detection](configuration.md#webp-support-detection) to use it as default resulting format when possible.
 

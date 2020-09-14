@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,7 +15,7 @@ type gcsTransport struct {
 	client *storage.Client
 }
 
-func newGCSTransport() http.RoundTripper {
+func newGCSTransport() (http.RoundTripper, error) {
 	var (
 		client *storage.Client
 		err    error
@@ -27,10 +28,10 @@ func newGCSTransport() http.RoundTripper {
 	}
 
 	if err != nil {
-		logFatal("Can't create GCS client: %s", err)
+		return nil, fmt.Errorf("Can't create GCS client: %s", err)
 	}
 
-	return gcsTransport{client}
+	return gcsTransport{client}, nil
 }
 
 func (t gcsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -47,13 +48,16 @@ func (t gcsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
+	header := make(http.Header)
+	header.Set("Cache-Control", reader.Attrs.CacheControl)
+
 	return &http.Response{
 		Status:        "200 OK",
 		StatusCode:    200,
 		Proto:         "HTTP/1.0",
 		ProtoMajor:    1,
 		ProtoMinor:    0,
-		Header:        make(http.Header),
+		Header:        header,
 		ContentLength: reader.Attrs.Size,
 		Body:          reader,
 		Close:         true,

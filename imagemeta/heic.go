@@ -23,7 +23,7 @@ func (d *heicDimensionsData) IsFilled() bool {
 
 func heicReadBoxHeader(r io.Reader) (boxType string, boxDataSize int64, err error) {
 	b := make([]byte, heicBoxHeaderSize)
-	_, err = r.Read(b)
+	_, err = io.ReadFull(r, b)
 	if err != nil {
 		return
 	}
@@ -36,7 +36,7 @@ func heicReadBoxHeader(r io.Reader) (boxType string, boxDataSize int64, err erro
 
 func heicReadBoxData(r io.Reader, boxDataSize int64) (b []byte, err error) {
 	b = make([]byte, boxDataSize)
-	_, err = r.Read(b)
+	_, err = io.ReadFull(r, b)
 	return
 }
 
@@ -70,7 +70,7 @@ func heicReadMeta(d *heicDimensionsData, r io.Reader, boxDataSize int64) error {
 		return errors.New("Invalid meta data")
 	}
 
-	if _, err := r.Read(make([]byte, 4)); err != nil {
+	if _, err := io.ReadFull(r, make([]byte, 4)); err != nil {
 		return err
 	}
 
@@ -140,7 +140,7 @@ func heicReadBoxes(d *heicDimensionsData, r io.Reader) error {
 				return err
 			}
 			if !d.IsFilled() {
-				return errors.New("Dimensions data wan't found in meta box")
+				return errors.New("Dimensions data wasn't found in meta box")
 			}
 			return nil
 		case "hdlr":
@@ -184,5 +184,12 @@ func DecodeHeicMeta(r io.Reader) (Meta, error) {
 }
 
 func init() {
-	RegisterFormat("????ftyp", DecodeHeicMeta)
+	RegisterFormat("????ftypheic", DecodeHeicMeta)
+	RegisterFormat("????ftypheix", DecodeHeicMeta)
+	RegisterFormat("????ftyphevc", DecodeHeicMeta)
+	RegisterFormat("????ftypheim", DecodeHeicMeta)
+	RegisterFormat("????ftypheis", DecodeHeicMeta)
+	RegisterFormat("????ftyphevm", DecodeHeicMeta)
+	RegisterFormat("????ftyphevs", DecodeHeicMeta)
+	RegisterFormat("????ftypmif1", DecodeHeicMeta)
 }

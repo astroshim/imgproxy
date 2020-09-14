@@ -16,14 +16,19 @@ var (
 	processingSem chan struct{}
 
 	headerVaryValue string
+	fallbackImage   *imageData
 )
 
-func initProcessingHandler() {
+func initProcessingHandler() error {
+	var err error
+
 	processingSem = make(chan struct{}, conf.Concurrency)
 
 	if conf.GZipCompression > 0 {
 		responseGzipBufPool = newBufPool("gzip", conf.Concurrency, conf.GZipBufferSize)
-		responseGzipPool = newGzipPool(conf.Concurrency)
+		if responseGzipPool, err = newGzipPool(conf.Concurrency); err != nil {
+			return err
+		}
 	}
 
 	vary := make([]string, 0)
@@ -41,6 +46,12 @@ func initProcessingHandler() {
 	}
 
 	headerVaryValue = strings.Join(vary, ", ")
+
+	if fallbackImage, err = getFallbackImageData(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func respondWithImage(ctx context.Context, reqID string, r *http.Request, rw http.ResponseWriter, data []byte) {
@@ -53,10 +64,27 @@ func respondWithImage(ctx context.Context, reqID string, r *http.Request, rw htt
 		contentDisposition = po.Format.ContentDispositionFromURL(getImageURL(ctx))
 	}
 
-	rw.Header().Set("Expires", time.Now().Add(time.Second*time.Duration(conf.TTL)).Format(http.TimeFormat))
-	rw.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d, public", conf.TTL))
 	rw.Header().Set("Content-Type", po.Format.Mime())
 	rw.Header().Set("Content-Disposition", contentDisposition)
+
+	var cacheControl, expires string
+
+	if conf.CacheControlPassthrough {
+		cacheControl = getCacheControlHeader(ctx)
+		expires = getExpiresHeader(ctx)
+	}
+
+	if len(cacheControl) == 0 && len(expires) == 0 {
+		cacheControl = fmt.Sprintf("max-age=%d, public", conf.TTL)
+		expires = time.Now().Add(time.Second * time.Duration(conf.TTL)).Format(http.TimeFormat)
+	}
+
+	if len(cacheControl) > 0 {
+		rw.Header().Set("Cache-Control", cacheControl)
+	}
+	if len(expires) > 0 {
+		rw.Header().Set("Expires", expires)
+	}
 
 	if len(headerVaryValue) > 0 {
 		rw.Header().Set("Vary", headerVaryValue)
@@ -131,7 +159,17 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		if prometheusEnabled {
 			incrementPrometheusErrorsTotal("download")
 		}
-		panic(err)
+
+		if fallbackImage == nil {
+			panic(err)
+		}
+
+		if ierr, ok := err.(*imgproxyError); !ok || ierr.Unexpected {
+			reportError(err, r)
+		}
+
+		logWarning("Could not load image. Using fallback image: %s", err.Error())
+		ctx = context.WithValue(ctx, imageDataCtxKey, fallbackImage)
 	}
 
 	checkTimeout(ctx)
@@ -147,6 +185,21 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 	}
 
 	checkTimeout(ctx)
+
+	if len(conf.SkipProcessingFormats) > 0 {
+		imgdata := getImageData(ctx)
+		po := getProcessingOptions(ctx)
+
+		if imgdata.Type == po.Format || po.Format == imageTypeUnknown {
+			for _, f := range conf.SkipProcessingFormats {
+				if f == imgdata.Type {
+					po.Format = imgdata.Type
+					respondWithImage(ctx, reqID, r, rw, imgdata.Data)
+					return
+				}
+			}
+		}
+	}
 
 	imageData, processcancel, err := processImage(ctx)
 	defer processcancel()

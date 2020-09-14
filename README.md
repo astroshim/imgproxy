@@ -4,7 +4,7 @@
      src="https://cdn.rawgit.com/DarthSim/imgproxy/master/logo.svg">
 
 
-[![CircleCI branch](https://img.shields.io/circleci/project/github/imgproxy/imgproxy/master.svg?logo=circleci&style=for-the-badge)](https://circleci.com/gh/DarthSim/imgproxy) [![Docker](https://img.shields.io/badge/docker-darthsim%2Fimgproxy-blue.svg?logo=docker&logoColor=white&style=for-the-badge)](https://hub.docker.com/r/darthsim/imgproxy/) [![MicroBadger Size](https://img.shields.io/microbadger/image-size/darthsim/imgproxy.svg?logo=docker&logoColor=white&style=for-the-badge)](https://hub.docker.com/r/darthsim/imgproxy/) [![Docker Pulls](https://img.shields.io/docker/pulls/darthsim/imgproxy.svg?logo=docker&logoColor=white&style=for-the-badge)](https://hub.docker.com/r/darthsim/imgproxy/) [![Gitter](https://img.shields.io/gitter/room/imgproxy/imgproxy?logo=gitter&style=for-the-badge)](https://gitter.im/imgproxy/imgproxy)
+[![CircleCI branch](https://img.shields.io/circleci/project/github/imgproxy/imgproxy/master.svg?logo=circleci&style=for-the-badge)](https://circleci.com/gh/imgproxy/imgproxy) [![Docker](https://img.shields.io/badge/docker-darthsim%2Fimgproxy-blue.svg?logo=docker&logoColor=white&style=for-the-badge)](https://hub.docker.com/r/darthsim/imgproxy/) [![Docker Pulls](https://img.shields.io/docker/pulls/darthsim/imgproxy.svg?logo=docker&logoColor=white&style=for-the-badge)](https://hub.docker.com/r/darthsim/imgproxy/) [![Gitter](https://img.shields.io/gitter/room/imgproxy/imgproxy?logo=gitter&style=for-the-badge)](https://gitter.im/imgproxy/imgproxy)
 
 
 imgproxy is a fast and secure standalone server for resizing and converting remote images. The main principles of imgproxy are simplicity, speed, and security.
@@ -54,7 +54,9 @@ Massive processing of remote images is a potentially dangerous thing, security-w
 1. [Getting started](https://docs.imgproxy.net/#/GETTING_STARTED)
 2. [Installation](https://docs.imgproxy.net/#/installation)
    * [Docker](https://docs.imgproxy.net/#/installation?id=docker)
+   * [Helm](https://docs.imgproxy.net/#/installation?id=helm)
    * [Heroku](https://docs.imgproxy.net/#/installation?id=heroku)
+   * [Packages](https://docs.imgproxy.net/#/installation?id=packages)
    * [From the source](https://docs.imgproxy.net/#/installation?id=from-the-source)
 3. [Configuration](https://docs.imgproxy.net/#/configuration)
    * [URL signature](https://docs.imgproxy.net/#/configuration?id=url-signature)
@@ -101,6 +103,7 @@ Many thanks to:
 * [Roman Shamin](https://github.com/romashamin) for the awesome logo.
 * [Alena Kirdina](https://github.com/egodyston) and [Alexander Madyankin](https://github.com/outpunk) for the great website.
 * [John Cupitt](https://github.com/jcupitt) who develops [libvips](https://github.com/libvips/libvips) and helps me to optimize its usage under the hood of imgproxy.
+* [Kirill Kuznetsov](https://github.com/dragonsmith) for the [Helm chart](https://github.com/imgproxy/imgproxy-helm).
 
 ## License
 

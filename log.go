@@ -1,12 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	logrus "github.com/sirupsen/logrus"
 )
 
-func initLog() {
+func initLog() error {
 	logFormat := "pretty"
 	strEnvConfig(&logFormat, "IMGPROXY_LOG_FORMAT")
 
@@ -32,15 +33,17 @@ func initLog() {
 	if isSyslogEnabled() {
 		slHook, err := newSyslogHook()
 		if err != nil {
-			logFatal("Unable to connect to local syslog daemon")
+			return fmt.Errorf("Unable to connect to syslog daemon: %s", err)
 		}
 
 		logrus.AddHook(slHook)
 	}
+
+	return nil
 }
 
 func logRequest(reqID string, r *http.Request) {
-	path := r.URL.RequestURI()
+	path := r.RequestURI
 
 	logrus.WithFields(logrus.Fields{
 		"request_id": reqID,
@@ -84,7 +87,7 @@ func logResponse(reqID string, r *http.Request, status int, err *imgproxyError, 
 
 	logrus.WithFields(fields).Logf(
 		level,
-		"Completed in %s %s", getTimerSince(r.Context()), r.URL.RequestURI(),
+		"Completed in %s %s", getTimerSince(r.Context()), r.RequestURI,
 	)
 }
 
@@ -94,6 +97,10 @@ func logNotice(f string, args ...interface{}) {
 
 func logWarning(f string, args ...interface{}) {
 	logrus.Warnf(f, args...)
+}
+
+func logError(f string, args ...interface{}) {
+	logrus.Errorf(f, args...)
 }
 
 func logFatal(f string, args ...interface{}) {

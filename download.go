@@ -10,12 +10,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/imgproxy/imgproxy/imagemeta"
+	"github.com/imgproxy/imgproxy/v2/imagemeta"
 )
 
 var (
-	downloadClient  *http.Client
-	imageDataCtxKey = ctxKey("imageData")
+	downloadClient *http.Client
+
+	imageDataCtxKey          = ctxKey("imageData")
+	cacheControlHeaderCtxKey = ctxKey("cacheControlHeader")
+	expiresHeaderCtxKey      = ctxKey("expiresHeader")
 
 	errSourceDimensionsTooBig      = newError(422, "Source image dimensions are too big", "Invalid source image")
 	errSourceResolutionTooBig      = newError(422, "Source image resolution is too big", "Invalid source image")
@@ -26,19 +29,6 @@ var (
 const msgSourceImageIsUnreachable = "Source image is unreachable"
 
 var downloadBufPool *bufPool
-
-type imageData struct {
-	Data []byte
-	Type imageType
-
-	cancel context.CancelFunc
-}
-
-func (d *imageData) Close() {
-	if d.cancel != nil {
-		d.cancel()
-	}
-}
 
 type limitReader struct {
 	r    io.Reader
@@ -56,7 +46,7 @@ func (lr *limitReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func initDownloading() {
+func initDownloading() error {
 	transport := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		MaxIdleConns:        conf.Concurrency,
@@ -74,11 +64,19 @@ func initDownloading() {
 	}
 
 	if conf.S3Enabled {
-		transport.RegisterProtocol("s3", newS3Transport())
+		if t, err := newS3Transport(); err != nil {
+			return err
+		} else {
+			transport.RegisterProtocol("s3", t)
+		}
 	}
 
 	if conf.GCSEnabled {
-		transport.RegisterProtocol("gs", newGCSTransport())
+		if t, err := newGCSTransport(); err != nil {
+			return err
+		} else {
+			transport.RegisterProtocol("gs", t)
+		}
 	}
 
 	downloadClient = &http.Client{
@@ -87,6 +85,10 @@ func initDownloading() {
 	}
 
 	downloadBufPool = newBufPool("download", conf.Concurrency, conf.DownloadBufferSize)
+
+	imagemeta.SetMaxSvgCheckRead(conf.MaxSvgCheckBytes)
+
+	return nil
 }
 
 func checkDimensions(width, height int) error {
@@ -196,10 +198,22 @@ func downloadImage(ctx context.Context) (context.Context, context.CancelFunc, er
 	}
 
 	ctx = context.WithValue(ctx, imageDataCtxKey, imgdata)
+	ctx = context.WithValue(ctx, cacheControlHeaderCtxKey, res.Header.Get("Cache-Control"))
+	ctx = context.WithValue(ctx, expiresHeaderCtxKey, res.Header.Get("Expires"))
 
 	return ctx, imgdata.Close, err
 }
 
 func getImageData(ctx context.Context) *imageData {
 	return ctx.Value(imageDataCtxKey).(*imageData)
+}
+
+func getCacheControlHeader(ctx context.Context) string {
+	str, _ := ctx.Value(cacheControlHeaderCtxKey).(string)
+	return str
+}
+
+func getExpiresHeader(ctx context.Context) string {
+	str, _ := ctx.Value(expiresHeaderCtxKey).(string)
+	return str
 }

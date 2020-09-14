@@ -45,7 +45,9 @@ VipsBandFormat vips_band_format(VipsImage *in);
 
 gboolean vips_support_webp_animation();
 gboolean vips_is_animated(VipsImage * in);
+
 gboolean vips_image_hasalpha_go(VipsImage * in);
+int vips_addalpha_go(VipsImage *in, VipsImage **out);
 
 int vips_copy_go(VipsImage *in, VipsImage **out);
 
@@ -66,6 +68,9 @@ int vips_flip_horizontal_go(VipsImage *in, VipsImage **out);
 
 int vips_extract_area_go(VipsImage *in, VipsImage **out, int left, int top, int width, int height);
 int vips_smartcrop_go(VipsImage *in, VipsImage **out, int width, int height);
+int vips_trim(VipsImage *in, VipsImage **out, double threshold,
+              gboolean smart, double r, double g, double b,
+              gboolean equal_hor, gboolean equal_ver);
 
 int vips_gaussblur_go(VipsImage *in, VipsImage **out, double sigma);
 int vips_sharpen_go(VipsImage *in, VipsImage **out, double sigma);
@@ -81,12 +86,11 @@ int vips_apply_watermark(VipsImage *in, VipsImage *watermark, VipsImage **out, d
 
 int vips_arrayjoin_go(VipsImage **in, VipsImage **out, int n);
 
-int vips_jpegsave_go(VipsImage *in, void **buf, size_t *len, int quality, int interlace);
+int vips_jpegsave_go(VipsImage *in, void **buf, size_t *len, int quality, int interlace, gboolean strip);
 int vips_pngsave_go(VipsImage *in, void **buf, size_t *len, int interlace, int quantize, int colors);
-int vips_webpsave_go(VipsImage *in, void **buf, size_t *len, int quality);
+int vips_webpsave_go(VipsImage *in, void **buf, size_t *len, int quality, gboolean strip);
 int vips_gifsave_go(VipsImage *in, void **buf, size_t *len);
 int vips_icosave_go(VipsImage *in, void **buf, size_t *len);
-int vips_heifsave_go(VipsImage *in, void **buf, size_t *len, int quality);
 int vips_bmpsave_go(VipsImage *in, void **buf, size_t *len);
 int vips_tiffsave_go(VipsImage *in, void **buf, size_t *len, int quality);
 

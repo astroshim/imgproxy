@@ -24,6 +24,8 @@
   --sidebar-border-color: hsla(0,0%,100%,.4);
 
   --copycode-background: var(--link-color);
+
+  --table-row-even-background: var(--base-background-color);
 }
 
 .app-name-link img {
@@ -86,6 +88,10 @@ body::before {
 .pro-badge {
   height: 1em;
   vertical-align: middle;
+}
+
+h1 .pro-badge, h2 .pro-badge, h3 .pro-badge, h4 .pro-badge {
+  margin-left: .25ch;
 }
 
 .github-edit-btn {

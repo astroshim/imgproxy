@@ -15,7 +15,7 @@ There are three ways to specify a watermark image using environment variables:
 
 You can also specify the base opacity of watermark with `IMGPROXY_WATERMARK_OPACITY`.
 
-**Note:** If you're going to use `scale` argument of `watermark`, it's highly recommended to use SVG, WebP or JPEG watermarks since these formats support scale-on-load.
+**📝Note:** If you're going to use `scale` argument of `watermark`, it's highly recommended to use SVG, WebP or JPEG watermarks since these formats support scale-on-load.
 
 ## Watermarking an image
 
@@ -43,7 +43,7 @@ Where arguments are:
 * `x_offset`, `y_offset` - (optional) specify watermark offset by X and Y axes. Not applicable to `re` position;
 * `scale` - (optional) floating point number that defines watermark size relative to the resulting image size. When set to `0` or omitted, watermark size won't be changed.
 
-## Custom watermarks <img class="pro-badge" src="assets/pro.svg" alt="pro" />
+## Custom watermarks<img class='pro-badge' src='assets/pro.svg' alt='pro' />
 
 You can use a custom watermark specifying its URL with `watermark_url` processing option:
 

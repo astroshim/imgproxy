@@ -7,11 +7,15 @@ import (
 	"math"
 	"runtime"
 
-	"github.com/imgproxy/imgproxy/imagemeta"
-	"golang.org/x/sync/errgroup"
+	"github.com/imgproxy/imgproxy/v2/imagemeta"
 )
 
-const msgSmartCropNotSupported = "Smart crop is not supported by used version of libvips"
+const (
+	msgSmartCropNotSupported = "Smart crop is not supported by used version of libvips"
+
+	// https://chromium.googlesource.com/webm/libwebp/+/refs/heads/master/src/webp/encode.h#529
+	webpMaxDimension = 16383.0
+)
 
 var errConvertingNonSvgToSvg = newError(422, "Converting non-SVG images to SVG is not supported", "Converting non-SVG images to SVG is not supported")
 
@@ -26,8 +30,7 @@ func imageTypeSaveSupport(imgtype imageType) bool {
 }
 
 func imageTypeGoodForWeb(imgtype imageType) bool {
-	return imgtype != imageTypeHEIC &&
-		imgtype != imageTypeTIFF &&
+	return imgtype != imageTypeTIFF &&
 		imgtype != imageTypeBMP
 }
 
@@ -346,7 +349,7 @@ func prepareWatermark(wm *vipsImage, wmData *imageData, opts *watermarkOptions, 
 
 	left, top := calcPosition(imgWidth, imgHeight, wm.Width(), wm.Height(), &opts.Gravity, true)
 
-	return wm.Embed(imgWidth, imgHeight, left, top, rgbColor{0, 0, 0})
+	return wm.Embed(imgWidth, imgHeight, left, top, rgbColor{0, 0, 0}, true)
 }
 
 func applyWatermark(img *vipsImage, wmData *imageData, opts *watermarkOptions, framesCount int) error {
@@ -379,8 +382,27 @@ func applyWatermark(img *vipsImage, wmData *imageData, opts *watermarkOptions, f
 	return img.ApplyWatermark(wm, opacity)
 }
 
+func copyMemoryAndCheckTimeout(ctx context.Context, img *vipsImage) error {
+	err := img.CopyMemory()
+	checkTimeout(ctx)
+	return err
+}
+
 func transformImage(ctx context.Context, img *vipsImage, data []byte, po *processingOptions, imgtype imageType) error {
-	var err error
+	var (
+		err     error
+		trimmed bool
+	)
+
+	if po.Trim.Enabled {
+		if err = img.Trim(po.Trim.Threshold, po.Trim.Smart, po.Trim.Color, po.Trim.EqualHor, po.Trim.EqualVer); err != nil {
+			return err
+		}
+		if err = copyMemoryAndCheckTimeout(ctx, img); err != nil {
+			return err
+		}
+		trimmed = true
+	}
 
 	srcWidth, srcHeight, angle, flip := extractMeta(img)
 	cropWidth, cropHeight := po.Crop.Width, po.Crop.Height
@@ -397,21 +419,18 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 
 	cropWidth = scaleInt(cropWidth, scale)
 	cropHeight = scaleInt(cropHeight, scale)
-	cropGravity.X *= scale
-	cropGravity.Y *= scale
+	if cropGravity.Type != gravityFocusPoint {
+		cropGravity.X *= scale
+		cropGravity.Y *= scale
+	}
 
-	if scale != 1 && data != nil && canScaleOnLoad(imgtype, scale) {
-		if imgtype == imageTypeWEBP || imgtype == imageTypeSVG {
+	if !trimmed && scale != 1 && data != nil && canScaleOnLoad(imgtype, scale) {
+		jpegShrink := calcJpegShink(scale, imgtype)
+
+		if imgtype != imageTypeJPEG || jpegShrink != 1 {
 			// Do some scale-on-load
-			if err = img.Load(data, imgtype, 1, scale, 1); err != nil {
+			if err = img.Load(data, imgtype, jpegShrink, scale, 1); err != nil {
 				return err
-			}
-		} else if imgtype == imageTypeJPEG {
-			// Do some shrink-on-load
-			if shrink := calcJpegShink(scale, imgtype); shrink != 1 {
-				if err = img.Load(data, imgtype, shrink, 1.0, 1); err != nil {
-					return err
-				}
 			}
 		}
 
@@ -456,54 +475,46 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 		}
 	}
 
-	checkTimeout(ctx)
+	if err = copyMemoryAndCheckTimeout(ctx, img); err != nil {
+		return err
+	}
 
-	if angle != vipsAngleD0 || flip {
-		if err = img.CopyMemory(); err != nil {
+	if angle != vipsAngleD0 {
+		if err = img.Rotate(angle); err != nil {
 			return err
-		}
-
-		if angle != vipsAngleD0 {
-			if err = img.Rotate(angle); err != nil {
-				return err
-			}
-		}
-
-		if flip {
-			if err = img.Flip(); err != nil {
-				return err
-			}
 		}
 	}
 
-	checkTimeout(ctx)
+	if flip {
+		if err = img.Flip(); err != nil {
+			return err
+		}
+	}
 
 	dprWidth := scaleInt(po.Width, po.Dpr)
 	dprHeight := scaleInt(po.Height, po.Dpr)
 
-	if cropGravity.Type == po.Gravity.Type && cropGravity.Type != gravityFocusPoint {
-		cropWidth = minNonZeroInt(cropWidth, dprWidth)
-		cropHeight = minNonZeroInt(cropHeight, dprHeight)
+	if err = cropImage(img, cropWidth, cropHeight, &cropGravity); err != nil {
+		return err
+	}
+	if err = cropImage(img, dprWidth, dprHeight, &po.Gravity); err != nil {
+		return err
+	}
 
-		sumGravity := gravityOptions{
-			Type: cropGravity.Type,
-			X:    cropGravity.X + po.Gravity.X,
-			Y:    cropGravity.Y + po.Gravity.Y,
+	if po.Format == imageTypeWEBP {
+		webpLimitShrink := float64(maxInt(img.Width(), img.Height())) / webpMaxDimension
+
+		if webpLimitShrink > 1.0 {
+			if err = img.Resize(1.0/webpLimitShrink, hasAlpha); err != nil {
+				return err
+			}
+			logWarning("WebP dimension size is limited to %d. The image is rescaled to %dx%d", int(webpMaxDimension), img.Width(), img.Height())
 		}
 
-		if err = cropImage(img, cropWidth, cropHeight, &sumGravity); err != nil {
-			return err
-		}
-	} else {
-		if err = cropImage(img, cropWidth, cropHeight, &cropGravity); err != nil {
-			return err
-		}
-		if err = cropImage(img, dprWidth, dprHeight, &po.Gravity); err != nil {
+		if err = copyMemoryAndCheckTimeout(ctx, img); err != nil {
 			return err
 		}
 	}
-
-	checkTimeout(ctx)
 
 	if !iccImported {
 		if err = img.ImportColourProfile(false); err != nil {
@@ -515,10 +526,16 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 		return err
 	}
 
-	if hasAlpha && (po.Flatten || po.Format == imageTypeJPEG) {
+	transparentBg := po.Format.SupportsAlpha() && !po.Flatten
+
+	if hasAlpha && !transparentBg {
 		if err = img.Flatten(po.Background); err != nil {
 			return err
 		}
+	}
+
+	if err = copyMemoryAndCheckTimeout(ctx, img); err != nil {
+		return err
 	}
 
 	if po.Blur > 0 {
@@ -533,14 +550,33 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 		}
 	}
 
+	if err = copyMemoryAndCheckTimeout(ctx, img); err != nil {
+		return err
+	}
+
 	if po.Extend.Enabled && (po.Width > img.Width() || po.Height > img.Height()) {
 		offX, offY := calcPosition(po.Width, po.Height, img.Width(), img.Height(), &po.Extend.Gravity, false)
-		if err = img.Embed(po.Width, po.Height, offX, offY, po.Background); err != nil {
+		if err = img.Embed(po.Width, po.Height, offX, offY, po.Background, transparentBg); err != nil {
 			return err
 		}
 	}
 
-	checkTimeout(ctx)
+	if po.Padding.Enabled {
+		paddingTop := scaleInt(po.Padding.Top, po.Dpr)
+		paddingRight := scaleInt(po.Padding.Right, po.Dpr)
+		paddingBottom := scaleInt(po.Padding.Bottom, po.Dpr)
+		paddingLeft := scaleInt(po.Padding.Left, po.Dpr)
+		if err = img.Embed(
+			img.Width()+paddingLeft+paddingRight,
+			img.Height()+paddingTop+paddingBottom,
+			paddingLeft,
+			paddingTop,
+			po.Background,
+			transparentBg,
+		); err != nil {
+			return err
+		}
+	}
 
 	if po.Watermark.Enabled && watermark != nil {
 		if err = applyWatermark(img, watermark, &po.Watermark, 1); err != nil {
@@ -548,10 +584,23 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 		}
 	}
 
-	return img.RgbColourspace()
+	if err = img.RgbColourspace(); err != nil {
+		return err
+	}
+
+	if err := img.CastUchar(); err != nil {
+		return err
+	}
+
+	return copyMemoryAndCheckTimeout(ctx, img)
 }
 
 func transformAnimated(ctx context.Context, img *vipsImage, data []byte, po *processingOptions, imgtype imageType) error {
+	if po.Trim.Enabled {
+		logWarning("Trim is not supported for animated images")
+		po.Trim.Enabled = false
+	}
+
 	imgWidth := img.Width()
 
 	frameHeight, err := img.GetInt("page-height")
@@ -576,7 +625,6 @@ func transformAnimated(ctx context.Context, img *vipsImage, data []byte, po *pro
 		}
 
 		if nPages > framesCount || canScaleOnLoad(imgtype, scale) {
-			logNotice("Animated scale on load")
 			// Do some scale-on-load and load only the needed frames
 			if err = img.Load(data, imgtype, 1, scale, framesCount); err != nil {
 				return err
@@ -601,43 +649,36 @@ func transformAnimated(ctx context.Context, img *vipsImage, data []byte, po *pro
 		return err
 	}
 
-	frames := make([]*vipsImage, framesCount)
-	defer func() {
-		for _, frame := range frames {
-			frame.Clear()
-		}
-	}()
-
 	watermarkEnabled := po.Watermark.Enabled
 	po.Watermark.Enabled = false
 	defer func() { po.Watermark.Enabled = watermarkEnabled }()
 
-	var errg errgroup.Group
+	frames := make([]*vipsImage, framesCount)
+	defer func() {
+		for _, frame := range frames {
+			if frame != nil {
+				frame.Clear()
+			}
+		}
+	}()
 
 	for i := 0; i < framesCount; i++ {
-		ind := i
-		errg.Go(func() error {
-			frame := new(vipsImage)
+		frame := new(vipsImage)
 
-			if err = img.Extract(frame, 0, ind*frameHeight, imgWidth, frameHeight); err != nil {
-				return err
-			}
+		if err = img.Extract(frame, 0, i*frameHeight, imgWidth, frameHeight); err != nil {
+			return err
+		}
 
-			if err = transformImage(ctx, frame, nil, po, imgtype); err != nil {
-				return err
-			}
+		frames[i] = frame
 
-			frames[ind] = frame
+		if err = transformImage(ctx, frame, nil, po, imgtype); err != nil {
+			return err
+		}
 
-			return nil
-		})
+		if err = copyMemoryAndCheckTimeout(ctx, frame); err != nil {
+			return err
+		}
 	}
-
-	if err = errg.Wait(); err != nil {
-		return err
-	}
-
-	checkTimeout(ctx)
 
 	if err = img.Arrayjoin(frames); err != nil {
 		return err
@@ -647,6 +688,14 @@ func transformAnimated(ctx context.Context, img *vipsImage, data []byte, po *pro
 		if err = applyWatermark(img, watermark, &po.Watermark, framesCount); err != nil {
 			return err
 		}
+	}
+
+	if err = img.CastUchar(); err != nil {
+		return err
+	}
+
+	if err = copyMemoryAndCheckTimeout(ctx, img); err != nil {
+		return err
 	}
 
 	img.SetInt("page-height", frames[0].Height())
@@ -668,12 +717,22 @@ func getIcoData(imgdata *imageData) (*imageData, error) {
 
 	data := imgdata.Data[offset : offset+size]
 
+	var format string
+
 	meta, err := imagemeta.DecodeMeta(bytes.NewReader(data))
 	if err != nil {
-		return nil, err
+		// Looks like it's BMP with an incomplete header
+		if d, err := imagemeta.FixBmpHeader(data); err == nil {
+			format = "bmp"
+			data = d
+		} else {
+			return nil, err
+		}
+	} else {
+		format = meta.Format()
 	}
 
-	if imgtype, ok := imageTypes[meta.Format()]; ok && vipsTypeSupportLoad[imgtype] {
+	if imgtype, ok := imageTypes[format]; ok && vipsTypeSupportLoad[imgtype] {
 		return &imageData{
 			Data: data,
 			Type: imgtype,
@@ -690,7 +749,7 @@ func saveImageToFitBytes(po *processingOptions, img *vipsImage) ([]byte, context
 	img.CopyMemory()
 
 	for {
-		result, cancel, err := img.Save(po.Format, quality)
+		result, cancel, err := img.Save(po.Format, quality, po.StripMetadata)
 		if len(result) <= po.MaxBytes || quality <= 10 || err != nil {
 			return result, cancel, err
 		}
@@ -805,18 +864,13 @@ func processImage(ctx context.Context) ([]byte, context.CancelFunc, error) {
 		}
 	}
 
-	checkTimeout(ctx)
-
-	if po.Format == imageTypeGIF {
-		if err := img.CastUchar(); err != nil {
-			return nil, func() {}, err
-		}
-		checkTimeout(ctx)
+	if err := copyMemoryAndCheckTimeout(ctx, img); err != nil {
+		return nil, func() {}, err
 	}
 
 	if po.MaxBytes > 0 && canFitToBytes(po.Format) {
 		return saveImageToFitBytes(po, img)
 	}
 
-	return img.Save(po.Format, po.Quality)
+	return img.Save(po.Format, po.Quality, po.StripMetadata)
 }

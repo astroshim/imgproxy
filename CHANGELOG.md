@@ -2,6 +2,118 @@
 
 ## [Unreleased]
 
+## [2.15.0] - 2020-09-03
+### Added
+- Ability to skip processing of some formats. See [Skip processing](https://docs.imgproxy.net/#/configuration?id=skip-processing).
+- (pro) PDF support.
+- (pro) [video_thumbnail_second](https://docs.imgproxy.net/#/generating_the_url_advanced?id=video-thumbnail-second) processing option.
+- (pro) [page](https://docs.imgproxy.net/#/generating_the_url_advanced?id=page) processing option.
+- (pro) [background_alpha](https://docs.imgproxy.net/#/generating_the_url_advanced?id=background-alpha) processing option.
+- (pro) `IMGPROXY_VIDEO_THUMBNAIL_PROBE_SIZE` and `IMGPROXY_VIDEO_THUMBNAIL_MAX_ANALYZE_DURATION` configs.
+
+### Changed
+- Speed up generation of video thumbnails with large timestamps.
+
+### Fix
+- Fix `padding` and `extend` behaior when converting from a fromat without alpha support to one with alpha support.
+- Fix WebP dimension limit handling.
+- (pro) Fix thumbnails generation of some videos.
+
+## [2.14.1] - 2020-07-22
+### Fix
+- Fix ICO saving.
+
+## [2.14.0] - 2020-07-17
+### Added
+- `IMGPROXY_PROMETHEUS_NAMESPACE` config.
+- [strip_metadata](https://docs.imgproxy.net/#/generating_the_url_advanced?id=strip-metadata) processing option.
+- (pro) Configurable unsharpening. See [Unsharpening](https://docs.imgproxy.net/#/configuration?id=unsharpening) configs and [unsharpening](https://docs.imgproxy.net/#/generating_the_url_advanced?id=unsharpening) processing option.
+
+### Changed
+- Better for libvips memory metrics for Prometheus.
+- Docker image includes the latest versions of dependencies.
+- Optimize processing of animated images.
+
+### Fix
+- Fix error when requested WebP dimension exceeds the WebP dimension limit.
+- Fix path parsing in some rare cases.
+- Fix HEIC/HEIF header parsing bug.
+
+### Deprecated
+- (pro) `IMGPROXY_APPLY_UNSHARPEN_MASKING` config is deprecated, use `IMGPROXY_UNSHARPENING_MODE` instead.
+
+## [2.13.1] - 2020-05-06
+### Fixed
+- Fix and optimize processing of animated images.
+
+## [2.13.0] - 2020-04-22
+### Added
+- Fallback images.
+- [padding](https://docs.imgproxy.net/#/generating_the_url_advanced?id=padding) processing option.
+
+### Changed
+- Optimized memory usage. Especially when dealing with animated images.
+
+### Fixed
+- Fix crashes during animated images processing.
+
+## [2.12.0] - 2020-04-07
+### Addded
+- `IMGPROXY_PATH_PREFIX` config.
+- (pro) Video thumbnails.
+- (pro) [Getting the image info](https://docs.imgproxy.net/#/getting_the_image_info).
+
+### Changed
+- Improved `trim` processing option.
+- Quantizr updated to 0.2.0 in Docker image.
+
+## [2.11.0] - 2020-03-12
+### Changed
+- Replaced imagequant with [Quantizr](https://github.com/DarthSim/quantizr) in docker image.
+- Removed HEIC saving support.
+- Removed JBIG compressin support in TIFF.
+
+## [2.10.1] - 2020-02-27
+### Changed
+- `imgproxy -v` is replaced with `imgproxy version`.
+
+### Fixed
+- Fix loadind BMP stored in ICO.
+- Fix ambiguous HEIC magic bytes (MP4 videos has been detected as HEIC).
+- Fix build with libvips < 8.6.
+- Fix build with Go 1.14.
+- Fix go module naming. Use `github.com/imgproxy/imgproxy/v2` to build imgproxy from source.
+
+## [2.10.0] - 2020-02-13
+### Added
+- `IMGPROXY_NETWORK` config. Allows to bind on Unix socket.
+- `IMGPROXY_CACHE_CONTROL_PASSTHROUGH` config.
+- `imgproxy health` command.
+- (pro) `IMGPROXY_GIF_OPTIMIZE_FRAMES` & `IMGPROXY_GIF_OPTIMIZE_TRANSPARENCY` configs and `gif_options` processing option.
+- (pro) `IMGPROXY_CUSTOM_REQUEST_HEADERS`, `IMGPROXY_CUSTOM_RESPONSE_HEADERS`, and `IMGPROXY_CUSTOM_HEADERS_SEPARATOR` configs.
+
+### Changed
+
+- Better SVG detection.
+
+### Fixed
+- Fix detection of SVG starting with a comment.
+
+## [2.9.0] - 2020-01-30
+### Added
+- `trim` processing option.
+- `IMGPROXY_STRIP_METADATA` config.
+
+### Fixed
+- Fixed focus point crop calculation.
+
+## [2.8.2] - 2020-01-13
+### Changed
+- Optimized memory usage.
+
+### Fixed
+- Fixed `IMGPROXY_ALLOWED_SOURCES` config.
+
 ## [2.8.1] - 2019-12-27
 ### Fixed
 - Fix watermark top offset calculation.
@@ -47,7 +159,6 @@
 - Fixed path parsing when no options is provided and image URL is Base64 encoded.
 
 ### Deprecated
-
 - Using `IMGPROXY_GCS_KEY` without `IMGPROXY_USE_GCS` set to `true` is deprecated.
 
 ## [2.5.0] - 2019-09-19

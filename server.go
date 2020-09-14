@@ -17,7 +17,7 @@ var (
 )
 
 func buildRouter() *router {
-	r := newRouter()
+	r := newRouter(conf.PathPrefix)
 
 	r.PanicHandler = handlePanic
 
@@ -25,15 +25,16 @@ func buildRouter() *router {
 	r.GET("/health", handleHealth, true)
 	r.GET("/favicon.ico", handleFavicon, true)
 	r.GET("/", withCORS(withSecret(handleProcessing)), false)
-	r.OPTIONS("/", withCORS(handleOptions), false)
+	r.HEAD("/", withCORS(handleHead), false)
+	r.OPTIONS("/", withCORS(handleHead), false)
 
 	return r
 }
 
-func startServer() *http.Server {
-	l, err := listenReuseport("tcp", conf.Bind)
+func startServer(cancel context.CancelFunc) (*http.Server, error) {
+	l, err := listenReuseport(conf.Network, conf.Bind)
 	if err != nil {
-		logFatal(err.Error())
+		return nil, fmt.Errorf("Can't start server: %s", err)
 	}
 	l = netutil.LimitListener(l, conf.MaxClients)
 
@@ -49,16 +50,19 @@ func startServer() *http.Server {
 		s.SetKeepAlivesEnabled(false)
 	}
 
-	initProcessingHandler()
+	if err := initProcessingHandler(); err != nil {
+		return nil, err
+	}
 
 	go func() {
 		logNotice("Starting server at %s", conf.Bind)
 		if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
-			logFatal(err.Error())
+			logError(err.Error())
 		}
+		cancel()
 	}()
 
-	return s
+	return s, nil
 }
 
 func shutdownServer(s *http.Server) {
@@ -128,7 +132,7 @@ func handleHealth(reqID string, rw http.ResponseWriter, r *http.Request) {
 	rw.Write(imgproxyIsRunningMsg)
 }
 
-func handleOptions(reqID string, rw http.ResponseWriter, r *http.Request) {
+func handleHead(reqID string, rw http.ResponseWriter, r *http.Request) {
 	logResponse(reqID, r, 200, nil, nil, nil)
 	rw.WriteHeader(200)
 }
