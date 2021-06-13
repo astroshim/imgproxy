@@ -29,7 +29,7 @@ var errConvertingNonSvgToSvg = newError(422, "Converting non-SVG images to SVG i
 
 //전역변수
 var (
-	gTextWatermark = "hahaha" //워터마크 텍스트
+	// gTextWatermark = "hahaha" //워터마크 텍스트
 	// gFontFileName  = "Goyang.ttf"   //폰트파일이름
 	gDpi = float64(72) //DPI
 	// gFont          = new(truetype.Font)
@@ -376,28 +376,6 @@ func prepareWatermark(wm *vipsImage, wmData *imageData, opts *watermarkOptions, 
 	return wm.Embed(imgWidth, imgHeight, left, top, rgbColor{0, 0, 0}, true)
 }
 
-/*
-func (m *Image) encodedPNG() []byte {
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, m.Paletted); err != nil {
-		panic(err.Error())
-	}
-	return buf.Bytes()
-}
-*/
-// func initFont() {
-// 	fontBytes, err := ioutil.ReadFile(gFontFileName)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// 	gFont, err = freetype.ParseFont(fontBytes)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// }
-
 func makeTextImage(text string, originalImageWidth int, originalImageHeight int) (textImg *image.RGBA) {
 	var fontSize float64 = 20
 	// fontFace := truetype.NewFace(gFont, &truetype.Options{Size: fontSize, DPI: gDpi})
@@ -435,7 +413,7 @@ func makeTextImage(text string, originalImageWidth int, originalImageHeight int)
 	return tmpTextImage
 }
 
-func applyWatermark(img *vipsImage, wmData *imageData, opts *watermarkOptions, framesCount int) error {
+func applyWatermark(img *vipsImage, wmData *imageData, watermarkText string, opts *watermarkOptions, framesCount int) error {
 	if err := img.RgbColourspace(); err != nil {
 		return err
 	}
@@ -453,36 +431,38 @@ func applyWatermark(img *vipsImage, wmData *imageData, opts *watermarkOptions, f
 	/**
 	 * hsshim
 	 *
+	 * Remote watermark
 	url := "https://ssm-goods-qa.s3.ap-northeast-2.amazonaws.com/images/watermark.png"
 	myWmData, err := remoteImageData(url, "watermark")
 	if err != nil {
 		return fmt.Errorf("Unable to retrieve watermark image %s, %s", url, err.Error())
 	}
-	// if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
-	// 	return err
-	// }
-	*/
-	// initFont()
-	textImg := makeTextImage(gTextWatermark, 0, 0)
-	///////////////
-	// image 를 buffer 에 담는다.
-	// var buff bytes.Buffer
-	// buff := new(bytes.Buffer)
-	buff := bytes.NewBuffer([]byte{})
-	if err := png.Encode(buff, textImg); err != nil {
-		return fmt.Errorf("Unable to make watermark image %s, %s", gTextWatermark, err.Error())
-		// panic(err.Error())
-	}
-	myWmData := &imageData{Data: buff.Bytes(), Type: imageTypePNG}
-	// return buf.Bytes()
-	///////////////
-	// landscape, textImg := makeTextImage(gTextWatermark, canvasWidth, canvasHeight)
-	////////////////////////////////
-
-	// if err := prepareWatermark(wm, wmData, opts, width, height/framesCount); err != nil {
 	if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
 		return err
 	}
+	*/
+
+	/**
+	 * hsshim
+	 *
+	 * Text watermark
+	 */
+	textImg := makeTextImage(watermarkText, 0, 0)
+
+	buff := bytes.NewBuffer([]byte{})
+	if err := png.Encode(buff, textImg); err != nil {
+		return fmt.Errorf("Unable to make watermark image %s, %s", watermarkText, err.Error())
+		// panic(err.Error())
+	}
+	myWmData := &imageData{Data: buff.Bytes(), Type: imageTypePNG}
+	if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
+		return err
+	}
+
+	// // original source
+	// if err := prepareWatermark(wm, wmData, opts, width, height/framesCount); err != nil {
+	// 	return err
+	// }
 
 	if framesCount > 1 {
 		if err := wm.Replicate(width, height); err != nil {
@@ -692,7 +672,7 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 	}
 
 	if po.Watermark.Enabled && watermark != nil {
-		if err = applyWatermark(img, watermark, &po.Watermark, 1); err != nil {
+		if err = applyWatermark(img, watermark, po.WatermarkText, &po.Watermark, 1); err != nil {
 			return err
 		}
 	}
@@ -798,7 +778,7 @@ func transformAnimated(ctx context.Context, img *vipsImage, data []byte, po *pro
 	}
 
 	if watermarkEnabled && watermark != nil {
-		if err = applyWatermark(img, watermark, &po.Watermark, framesCount); err != nil {
+		if err = applyWatermark(img, watermark, po.WatermarkText, &po.Watermark, framesCount); err != nil {
 			return err
 		}
 	}
