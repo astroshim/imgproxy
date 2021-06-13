@@ -147,7 +147,7 @@ type processingOptions struct {
 
 	CacheBuster string
 
-	WatermarkText string
+	WatermarkText string // hsshim
 	Watermark     watermarkOptions
 
 	PreferWebP  bool
