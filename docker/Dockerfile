@@ -32,6 +32,7 @@ ENV LD_LIBRARY_PATH /usr/local/lib
 
 # ADD img_watermark3.png /img_watermark3.png
 ADD ssm_watermark.png /ssm_watermark.png
+ADD Goyang.ttf /Goyang.ttf
 
 CMD ["imgproxy"]
 

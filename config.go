@@ -238,10 +238,11 @@ type config struct {
 	Presets     presets
 	OnlyPresets bool
 
-	WatermarkData    string
-	WatermarkPath    string
-	WatermarkURL     string
-	WatermarkOpacity float64
+	WatermarkFontFile string // hsshim
+	WatermarkData     string
+	WatermarkPath     string
+	WatermarkURL      string
+	WatermarkOpacity  float64
 
 	FallbackImageData string
 	FallbackImagePath string
@@ -398,6 +399,7 @@ func configure() error {
 	}
 	boolEnvConfig(&conf.OnlyPresets, "IMGPROXY_ONLY_PRESETS")
 
+	strEnvConfig(&conf.WatermarkFontFile, "IMGPROXY_WATERMARK_FONT_FILE")
 	strEnvConfig(&conf.WatermarkData, "IMGPROXY_WATERMARK_DATA")
 	strEnvConfig(&conf.WatermarkPath, "IMGPROXY_WATERMARK_PATH")
 	strEnvConfig(&conf.WatermarkURL, "IMGPROXY_WATERMARK_URL")
