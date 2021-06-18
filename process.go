@@ -67,6 +67,7 @@ func extractMeta(img *vipsImage) (int, int, int, bool) {
 
 	/**
 	 * for ssm
+   *
 	orientation := img.Orientation()
 
 	if orientation >= 5 && orientation <= 8 {
@@ -447,22 +448,23 @@ func applyWatermark(img *vipsImage, wmData *imageData, watermarkText string, opt
 	 *
 	 * Text watermark
 	 */
-	textImg := makeTextImage(watermarkText, 0, 0)
+	if len(watermarkText) > 0 {
+		textImg := makeTextImage(watermarkText, 0, 0)
 
-	buff := bytes.NewBuffer([]byte{})
-	if err := png.Encode(buff, textImg); err != nil {
-		return fmt.Errorf("Unable to make watermark image %s, %s", watermarkText, err.Error())
-		// panic(err.Error())
+		buff := bytes.NewBuffer([]byte{})
+		if err := png.Encode(buff, textImg); err != nil {
+			return fmt.Errorf("Unable to make watermark image %s, %s", watermarkText, err.Error())
+		}
+		myWmData := &imageData{Data: buff.Bytes(), Type: imageTypePNG}
+		if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
+			return err
+		}
+	} else {
+		// original source
+		if err := prepareWatermark(wm, wmData, opts, width, height/framesCount); err != nil {
+			return err
+		}
 	}
-	myWmData := &imageData{Data: buff.Bytes(), Type: imageTypePNG}
-	if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
-		return err
-	}
-
-	// // original source
-	// if err := prepareWatermark(wm, wmData, opts, width, height/framesCount); err != nil {
-	// 	return err
-	// }
 
 	if framesCount > 1 {
 		if err := wm.Replicate(width, height); err != nil {
