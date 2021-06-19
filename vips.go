@@ -16,6 +16,8 @@ import (
 	"os"
 	"runtime"
 	"unsafe"
+
+	"github.com/golang/freetype/truetype"
 )
 
 type vipsImage struct {
@@ -27,6 +29,8 @@ var (
 	vipsTypeSupportLoad  = make(map[imageType]bool)
 	vipsTypeSupportSave  = make(map[imageType]bool)
 
+	watermarkFont = new(truetype.Font)
+	// watermarkFont *imageData
 	watermark *imageData
 )
 
@@ -129,6 +133,7 @@ func vipsError() error {
 }
 
 func vipsLoadWatermark() (err error) {
+	watermarkFont, err = getWatermarkFontData() // hsshim
 	watermark, err = getWatermarkData()
 	return
 }

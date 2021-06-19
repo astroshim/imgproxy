@@ -4,8 +4,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/color"
 	"math"
 	"runtime"
+
+	"image/png"
+
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/font"
 
 	"github.com/imgproxy/imgproxy/v2/imagemeta"
 )
@@ -18,6 +26,22 @@ const (
 )
 
 var errConvertingNonSvgToSvg = newError(422, "Converting non-SVG images to SVG is not supported", "Converting non-SVG images to SVG is not supported")
+
+//전역변수
+var (
+	// gTextWatermark = "hahaha" //워터마크 텍스트
+	// gFontFileName  = "Goyang.ttf"   //폰트파일이름
+	gDpi = float64(72) //DPI
+	// gFont          = new(truetype.Font)
+	//워터마크 텍스트 색상
+	gColorText = image.NewUniform(color.RGBA{255, 255, 255, 255})
+	//아웃라인 색상
+	// g_colorOutline = image.NewUniform(color.RGBA{128, 128, 128, 255})
+	//그림자 색상
+	// g_colorShadow = image.NewUniform(color.RGBA{0, 0, 0, 90})
+	//워터마크 폰트크기 비율 (이미지 크기의 몇%를 차지 하는가)
+	gWatermarkFontHeightRatio = 0.071
+)
 
 func imageTypeLoadSupport(imgtype imageType) bool {
 	return imgtype == imageTypeSVG ||
@@ -43,6 +67,7 @@ func extractMeta(img *vipsImage) (int, int, int, bool) {
 
 	/**
 	 * for ssm
+   *
 	orientation := img.Orientation()
 
 	if orientation >= 5 && orientation <= 8 {
@@ -96,23 +121,23 @@ func calcScale2(oriWidth, oriHeight, width, height int, po *processingOptions, i
 
 			// 도매픽사이즈 696x928, 카테고리 추천광고 사이즈 375x500 의 경우 무조건 fill
 			// if (width == 696 && height == 928 || width == 375 && height == 500) {
-			if (po.Width == 696 && po.Height == 928 || po.Width == 375 && po.Height == 500) {
+			if po.Width == 696 && po.Height == 928 || po.Width == 375 && po.Height == 500 {
 				rt = resizeFill
-			} else if (float64(float64(po.Width)/float64(po.Height)) == 0.75 && float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // request가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+			} else if float64(float64(po.Width)/float64(po.Height)) == 0.75 && float64(float64(oriWidth)/float64(oriHeight)) >= 0.75 { // request가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
 				rt = resizeFit
-			// } else if (float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // 원본 이미지가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
-			// 	rt = resizeFit
+				// } else if (float64(float64(oriWidth)/float64(oriHeight)) >= 0.75) { // 원본 이미지가 3:4 비율(가로/세로 >= 0.75) 일때 상하 여백을 준다.
+				// 	rt = resizeFit
 			} else {
 				rt = resizeFill
 			}
 
 			/*
-			// 가로가 큰 사진은 fit, 세로가 큰 사진은 fill 하도록 변경. (원래 소스와 반대)
-			if (srcD >= 0) {
-				rt = resizeFit
-			} else {
-				rt = resizeFill
-			}
+				// 가로가 큰 사진은 fit, 세로가 큰 사진은 fill 하도록 변경. (원래 소스와 반대)
+				if (srcD >= 0) {
+					rt = resizeFit
+				} else {
+					rt = resizeFill
+				}
 			*/
 		}
 
@@ -352,7 +377,44 @@ func prepareWatermark(wm *vipsImage, wmData *imageData, opts *watermarkOptions, 
 	return wm.Embed(imgWidth, imgHeight, left, top, rgbColor{0, 0, 0}, true)
 }
 
-func applyWatermark(img *vipsImage, wmData *imageData, opts *watermarkOptions, framesCount int) error {
+func makeTextImage(text string, originalImageWidth int, originalImageHeight int) (textImg *image.RGBA) {
+	var fontSize float64 = 20
+	// fontFace := truetype.NewFace(gFont, &truetype.Options{Size: fontSize, DPI: gDpi})
+	fontFace := truetype.NewFace(watermarkFont, &truetype.Options{Size: fontSize, DPI: gDpi})
+	drawer := &font.Drawer{
+		Face: fontFace,
+	}
+	//아웃라인 두께
+	outlineAmount := int(math.Round(fontSize * 0.013))
+	//외곽선 굵기가 0 나오면 1 줌
+	if outlineAmount < 1 {
+		outlineAmount = 1
+	}
+
+	//그림자 위치
+	shadowX := 2 * outlineAmount
+	shadowY := 2 * outlineAmount
+	_, _ = shadowX, shadowY
+	//이미지화된 가로세로 넓이
+	watermarkImageWidth := drawer.MeasureString(text).Ceil()
+	watermarkImageHeight := drawer.Face.Metrics().Height.Ceil()
+	_, _ = watermarkImageWidth, watermarkImageHeight
+	//이미지 텍스트를 그릴 캔버스 준비
+	tmpTextImage := image.NewRGBA(image.Rectangle{image.Point{0, 0}, image.Point{watermarkImageWidth, watermarkImageHeight}})
+	drawer.Dst = tmpTextImage
+	//워터마크 x위치
+	posWatermarkStartX := 0
+	posWatermarkStartY := watermarkImageHeight - drawer.Face.Metrics().Descent.Ceil()
+	_, _ = posWatermarkStartX, posWatermarkStartY
+
+	//메인 텍스트
+	drawer.Src = gColorText
+	drawer.Dot = freetype.Pt(posWatermarkStartX, posWatermarkStartY)
+	drawer.DrawString(text)
+	return tmpTextImage
+}
+
+func applyWatermark(img *vipsImage, wmData *imageData, watermarkText string, opts *watermarkOptions, framesCount int) error {
 	if err := img.RgbColourspace(); err != nil {
 		return err
 	}
@@ -367,8 +429,41 @@ func applyWatermark(img *vipsImage, wmData *imageData, opts *watermarkOptions, f
 	width := img.Width()
 	height := img.Height()
 
-	if err := prepareWatermark(wm, wmData, opts, width, height/framesCount); err != nil {
+	/**
+	 * hsshim
+	 *
+	 * Remote watermark
+	url := "https://ssm-goods-qa.s3.ap-northeast-2.amazonaws.com/images/watermark.png"
+	myWmData, err := remoteImageData(url, "watermark")
+	if err != nil {
+		return fmt.Errorf("Unable to retrieve watermark image %s, %s", url, err.Error())
+	}
+	if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
 		return err
+	}
+	*/
+
+	/**
+	 * hsshim
+	 *
+	 * Text watermark
+	 */
+	if len(watermarkText) > 0 {
+		textImg := makeTextImage(watermarkText, 0, 0)
+
+		buff := bytes.NewBuffer([]byte{})
+		if err := png.Encode(buff, textImg); err != nil {
+			return fmt.Errorf("Unable to make watermark image %s, %s", watermarkText, err.Error())
+		}
+		myWmData := &imageData{Data: buff.Bytes(), Type: imageTypePNG}
+		if err := prepareWatermark(wm, myWmData, opts, width, height/framesCount); err != nil {
+			return err
+		}
+	} else {
+		// original source
+		if err := prepareWatermark(wm, wmData, opts, width, height/framesCount); err != nil {
+			return err
+		}
 	}
 
 	if framesCount > 1 {
@@ -579,7 +674,7 @@ func transformImage(ctx context.Context, img *vipsImage, data []byte, po *proces
 	}
 
 	if po.Watermark.Enabled && watermark != nil {
-		if err = applyWatermark(img, watermark, &po.Watermark, 1); err != nil {
+		if err = applyWatermark(img, watermark, po.WatermarkText, &po.Watermark, 1); err != nil {
 			return err
 		}
 	}
@@ -685,7 +780,7 @@ func transformAnimated(ctx context.Context, img *vipsImage, data []byte, po *pro
 	}
 
 	if watermarkEnabled && watermark != nil {
-		if err = applyWatermark(img, watermark, &po.Watermark, framesCount); err != nil {
+		if err = applyWatermark(img, watermark, po.WatermarkText, &po.Watermark, framesCount); err != nil {
 			return err
 		}
 	}

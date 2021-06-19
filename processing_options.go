@@ -147,7 +147,8 @@ type processingOptions struct {
 
 	CacheBuster string
 
-	Watermark watermarkOptions
+	WatermarkText string // hsshim
+	Watermark     watermarkOptions
 
 	PreferWebP  bool
 	EnforceWebP bool
@@ -742,6 +743,43 @@ func applySharpenOption(po *processingOptions, args []string) error {
 	return nil
 }
 
+func applyWatermarkTextOption(po *processingOptions, args []string) error {
+	logWarning("applyWatermarkTextOption --> %v", args)
+
+	if len(args) > 1 {
+		return fmt.Errorf("Invalid watermark text arguments: %v, %s", args, args[0])
+	}
+
+	watermarkText, err := base64.StdEncoding.DecodeString(args[0])
+	// log.Printf("base64 decoded: %s\n", decoded)
+	if err != nil {
+		fmt.Errorf("Invalid watermark text encoding: %v", args)
+		// return fmt.Errorf("Invalid watermark text encoding: %v", args)
+	}
+
+	// watermarkText, err := base64.RawURLEncoding.DecodeString(args[0])
+	// if err != nil {
+	// 	fmt.Errorf("Invalid watermark text encoding: %v", args)
+	// 	// return fmt.Errorf("Invalid watermark text encoding: %v", args)
+	// }
+
+	po.WatermarkText = string(watermarkText)
+	logWarning("applyWatermarkTextOption wmText --> %s", po.WatermarkText)
+
+	// imageURL, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(args[0], "="))
+	// if err != nil {
+	// 	return "", "", fmt.Errorf("Invalid url encoding: %s", encoded)
+	// }
+
+	// if s, err := strconv.ParseFloat(args[0], 32); err == nil && s >= 0 {
+	// 	po.Sharpen = float32(s)
+	// } else {
+	// 	return fmt.Errorf("Invalid sharpen: %s", args[0])
+	// }
+
+	return nil
+}
+
 func applyPresetOption(po *processingOptions, args []string) error {
 	for _, preset := range args {
 		if p, ok := conf.Presets[preset]; ok {
@@ -898,6 +936,8 @@ func applyProcessingOption(po *processingOptions, name string, args []string) er
 		return applyBlurOption(po, args)
 	case "sharpen", "sh":
 		return applySharpenOption(po, args)
+	case "watermark_text", "wmtext":
+		return applyWatermarkTextOption(po, args)
 	case "watermark", "wm":
 		return applyWatermarkOption(po, args)
 	case "preset", "pr":

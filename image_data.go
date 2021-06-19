@@ -6,6 +6,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+
+	"io/ioutil"
+
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
 )
 
 type imageData struct {
@@ -19,6 +24,31 @@ func (d *imageData) Close() {
 	if d.cancel != nil {
 		d.cancel()
 	}
+}
+
+func fontData(fontFileName string) (*truetype.Font, error) {
+	fontBytes, err := ioutil.ReadFile(fontFileName)
+	if err != nil {
+		return nil, fmt.Errorf("Can't load font file %s, %s", fontFileName, err.Error())
+		// fmt.Println(err)
+		// return
+	}
+	font, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		return nil, fmt.Errorf("Can't freetype.ParseFont %s, %s", fontFileName, err.Error())
+		// fmt.Println(err)
+		// return
+	}
+	return font, nil
+}
+
+func getWatermarkFontData() (*truetype.Font, error) {
+	// func getWatermarkFontData() {
+	if len(conf.WatermarkFontFile) > 0 {
+		// fontData(conf.WatermarkFontFile)
+		return fontData(conf.WatermarkFontFile)
+	}
+	return nil, nil
 }
 
 func getWatermarkData() (*imageData, error) {
@@ -36,6 +66,38 @@ func getWatermarkData() (*imageData, error) {
 
 	return nil, nil
 }
+
+// func getWatermarkFromUrl() (*imageData, error) {
+// 	/**
+// 	 * hsshim
+// 	 */
+// 	url := "https://ssm-goods-qa.s3.ap-northeast-2.amazonaws.com/images/watermark.png"
+// 	return remoteImageData(url, "watermark")
+
+// 	// response, err := http.Get(url)
+// 	// if err != nil {
+// 	// 	return nil, fmt.Errorf("Unable to retrieve watermark image %s", url)
+
+// 	// }
+// 	// defer func() {
+// 	// 	_ = response.Body.Close()
+// 	// }()
+
+// 	// bodyReader := io.LimitReader(response.Body, 1e6)
+
+// 	// imageBuf, err := ioutil.ReadAll(bodyReader)
+// 	// if len(imageBuf) == 0 {
+// 	// 	errMessage := "Unable to read watermark image"
+
+// 	// 	if err != nil {
+// 	// 		errMessage = fmt.Sprintf("%s. %s", errMessage, err.Error())
+// 	// 	}
+
+// 	// 	return imageBuf, errMessage
+// 	// }
+
+// 	// return nil, nil
+// }
 
 func getFallbackImageData() (*imageData, error) {
 	if len(conf.FallbackImageData) > 0 {
